@@ -3,7 +3,7 @@
 Opinionated scaffolding for polyglot projects.
 
 ## What is This?
-`polyglot-forge` is a public monorepo containing project scaffolding for various programming language and frameworks.
+`polyglot-forge` is a public monorepo containing project scaffolding for various programming languages and frameworks.
 It provides a consistent structure, conventions, ADRs, and language-specific blueprints you can use in real projects.
 
 Make starting and scaling multi-language projects boring (in the best way).

@@ -1,0 +1,54 @@
+[project]
+name = "example-python"
+version = "0.1.0"
+description = "Python blueprint for polyglot-forge (uv + ruff + pytest)."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "GPL-3.0-only" }
+authors = [{ name = "Your Name" }]
+dependencies = []
+
+# uv: dev dependencies live in dependency groups. uv add --dev writes here.
+[dependency-groups]
+dev = [
+  "pytest>=8",
+  "ruff>=0.6",
+  "testcontainers>=4",
+  "redis>=5",
+]
+
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/example_pkg"]
+
+# -----------------------------
+# Ruff (lint + format)
+# -----------------------------
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.format]
+# Keep defaults mostly
+preview = false
+
+[tool.ruff.lint]
+# A pragmatic baseline: pycodestyle/pyflakes/imports/bugbear/pyupgrade.
+select = ["E", "F", "I", "B", "UP"]
+# Commonly-ignored “nit” for many teams; easy to revisit later.
+ignore = ["E501"]
+
+# -----------------------------
+# Pytest
+# -----------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra"
+testpaths = ["tests"]
+markers = [
+  "integration: tests that require external services (docker/testcontainers)",
+]
