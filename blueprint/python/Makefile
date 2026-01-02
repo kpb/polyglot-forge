@@ -10,7 +10,7 @@ REPO_ROOT  := $(abspath $(MKFILE_DIR)/../..)
 PRE_COMMIT_CONFIG := $(REPO_ROOT)/.pre-commit-config.yaml
 
 .PHONY: help init sync lock fmt lint test test-integration clean tree \
-		hooks-install hooks-run hooks-update hooks-run-staged
+		hooks-install hooks-run hooks-update hooks-run-staged coverage coverage-xml coverage-html
 
 help: ## Show targets
 	@awk 'BEGIN {FS = ":.*##"; printf "\nTargets:\n"} /^[a-zA-Z_-]+:.*##/ {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -36,6 +36,18 @@ test: ## Run unit tests (default)
 
 test-integration: ## Run integration tests (requires docker)
 	$(UV) run -- pytest -m integration
+
+coverage: ## Coverage (unit tests only)
+	$(UV) run -- pytest -m "not integration" \
+		--cov=$(PKG) --cov-report=term-missing --cov-fail-under=80
+
+coverage-xml: ## Coverage (unit tests only) + coverage.xml (for CI)
+	$(UV) run -- pytest -m "not integration" \
+		--cov=$(PKG) --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+
+coverage-html: ## Coverage (unit tests only) + HTML report (htmlcov/)
+	$(UV) run -- pytest -m "not integration" \
+		--cov=$(PKG) --cov-report=term-missing --cov-report=html --cov-fail-under=80
 
 clean: ## Remove caches/build artifacts and the venv
 	rm -rf .venv .pytest_cache .ruff_cache __pycache__

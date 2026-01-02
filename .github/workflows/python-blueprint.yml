@@ -62,15 +62,25 @@ jobs:
           else
             uv run -- pre-commit run --all-files -c "$GITHUB_WORKSPACE/.pre-commit-config.yaml"
           fi
-          
-      - name: Pytest (unit)
+
+      - name: Pytest (unit) w/Coverage
         shell: bash
         run: |
           if [[ -f uv.lock ]]; then
-            uv run --frozen -- pytest -m "not integration"
+            uv run --frozen -- pytest -m "not integration" \
+              --cov=example_pkg --cov-report=term-missing --cov-report=xml --cov-fail-under=80
           else
-            uv run -- pytest -m "not integration"
+            uv run -- pytest -m "not integration" \
+              --cov=example_pkg --cov-report=term-missing --cov-report=xml --cov-fail-under=80
           fi
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-blueprint-coverage
+          path: blueprint/python/coverage.xml
+
+
 
   integration-tests:
     # Only run when manually triggered
