@@ -4,10 +4,16 @@ UV ?= uv
 PYTHON ?= python
 PKG ?= example_pkg
 
-.PHONY: help init sync lock fmt lint test clean tree
+# Resolve repo root relative to *this* Makefile location (blueprint/python/Makefile).
+MKFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+REPO_ROOT  := $(abspath $(MKFILE_DIR)/../..)
+PRE_COMMIT_CONFIG := $(REPO_ROOT)/.pre-commit-config.yaml
+
+.PHONY: help init sync lock fmt lint test test-integration clean tree \
+		hooks-install hooks-run hooks-update hooks-run-staged
 
 help: ## Show targets
-	@awk 'BEGIN {FS = ":.*##"; printf "\nTargets:\n"} /^[a-zA-Z_-]+:.*##/ {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf "\nTargets:\n"} /^[a-zA-Z_-]+:.*##/ {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
 init: ## Create venv and sync dependencies (generates uv.lock on first run)
 	$(UV) venv
@@ -25,11 +31,11 @@ fmt: ## Format code (ruff)
 lint: ## Lint (ruff)
 	$(UV) run -- ruff check .
 
-test: ## Run unit tests
+test: ## Run unit tests (default)
 	$(UV) run -- pytest -m "not integration"
 
 test-integration: ## Run integration tests (requires docker)
-	$(UV) run -- pytest -m "integration"
+	$(UV) run -- pytest -m integration
 
 clean: ## Remove caches/build artifacts and the venv
 	rm -rf .venv .pytest_cache .ruff_cache __pycache__
@@ -38,3 +44,15 @@ clean: ## Remove caches/build artifacts and the venv
 
 tree: ## Show a quick project tree (if `tree` is installed)
 	@command -v tree >/dev/null && tree -a -I ".venv|__pycache__|.pytest_cache|.ruff_cache|dist|build" || true
+
+hooks-install: ## Install pre-commit git hooks (uses repo root config)
+	$(UV) run -- pre-commit install -c $(PRE_COMMIT_CONFIG)
+
+hooks-run: ## Run hooks on all files (uses repo root config)
+	$(UV) run -- pre-commit run --all-files -c $(PRE_COMMIT_CONFIG)
+
+hooks-update: ## Bump hook versions in .pre-commit-config.yaml
+	$(UV) run -- pre-commit autoupdate -c $(PRE_COMMIT_CONFIG)
+
+hooks-run-staged: ## Run hooks on staged files only (uses repo root config)
+	$(UV) run -- pre-commit run -c $(PRE_COMMIT_CONFIG)

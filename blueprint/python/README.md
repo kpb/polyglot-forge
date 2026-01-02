@@ -29,3 +29,39 @@ This is a copyable Python starter blueprint.
 ## Notes
 - `uv.lock` will be generated the first time you `uv sync` / `uv run` / `uv lock`.
   Commit it for reproducible installs.
+
+## Pre-commit (Ruff on commit)
+
+This repo uses `pre-commit` to run Ruff automatically when you `git commit`.
+
+**One-time setup (from `blueprint/python/`):**
+
+```bash
+uv add --dev pre-commit
+make sync
+make hooks-install
+```
+
+**Run hooks manually**
+On staged files (matches commit behavior):
+```bash
+make hooks-run-staged
+```
+
+**On all files:**
+
+```bash
+make hooks-run
+```
+
+**Update hook versions**
+
+```bash
+make hooks-update
+```
+
+**Notes**
+
+The hook config lives at the repo root: .pre-commit-config.yaml
+
+Ruff is run using the blueprint’s config: blueprint/python/pyproject.toml
