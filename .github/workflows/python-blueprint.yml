@@ -1,0 +1,130 @@
+name: Python Blueprint CI
+
+on:
+  push:
+    paths:
+      - "blueprint/python/**"
+      - ".github/workflows/python-blueprint.yml"
+      - ".pre-commit-config.yaml"
+  pull_request:
+    paths:
+      - "blueprint/python/**"
+      - ".github/workflows/python-blueprint.yml"
+      - ".pre-commit-config.yaml"
+
+  # Manual run (for integration tests)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-blueprint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: blueprint/python
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "blueprint/python/.python-version"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          working-directory: blueprint/python
+
+      - name: Sync dependencies (locked if uv.lock present)
+        shell: bash
+        run: |
+          if [[ -f uv.lock ]]; then
+            uv sync --frozen
+          else
+            uv sync
+          fi
+
+      - name: Ruff format check
+        shell: bash
+        run: |
+          if [[ -f uv.lock ]]; then
+            uv run --frozen -- ruff format --check .
+          else
+            uv run -- ruff format --check .
+          fi
+
+      - name: Ruff lint
+        shell: bash
+        run: |
+          if [[ -f uv.lock ]]; then
+            uv run --frozen -- ruff check .
+          else
+            uv run -- ruff check .
+          fi
+
+      - name: Pytest (unit)
+        shell: bash
+        run: |
+          if [[ -f uv.lock ]]; then
+            uv run --frozen -- pytest -m "not integration"
+          else
+            uv run -- pytest -m "not integration"
+          fi
+
+  integration-tests:
+    # Only run when manually triggered
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: blueprint/python
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "blueprint/python/.python-version"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          working-directory: blueprint/python
+
+      - name: Sync dependencies (locked if uv.lock present)
+        shell: bash
+        run: |
+          if [[ -f uv.lock ]]; then
+            uv sync --frozen
+          else
+            uv sync
+          fi
+
+      - name: Docker sanity check
+        shell: bash
+        run: |
+          docker version
+          docker info
+
+      - name: Pytest (integration)
+        shell: bash
+        run: |
+          if [[ -f uv.lock ]]; then
+            uv run --frozen -- pytest -m integration -vv
+          else
+            uv run -- pytest -m integration -vv
+          fi
