@@ -54,24 +54,15 @@ jobs:
             uv sync
           fi
 
-      - name: Ruff format check
+      - name: Pre-commit (all files)
         shell: bash
         run: |
           if [[ -f uv.lock ]]; then
-            uv run --frozen -- ruff format --check .
+            uv run --frozen -- pre-commit run --all-files -c "$GITHUB_WORKSPACE/.pre-commit-config.yaml"
           else
-            uv run -- ruff format --check .
+            uv run -- pre-commit run --all-files -c "$GITHUB_WORKSPACE/.pre-commit-config.yaml"
           fi
-
-      - name: Ruff lint
-        shell: bash
-        run: |
-          if [[ -f uv.lock ]]; then
-            uv run --frozen -- ruff check .
-          else
-            uv run -- ruff check .
-          fi
-
+          
       - name: Pytest (unit)
         shell: bash
         run: |
