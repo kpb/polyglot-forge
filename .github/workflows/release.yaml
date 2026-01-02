@@ -16,12 +16,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Validate tag is strict semver (vMAJOR.MINOR.PATCH)
+      - name: Validate tag is semver (vMAJOR.MINOR.PATCH[-PRERELEASE][+BUILD])
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME}"
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Tag '$TAG' is not strict semver (expected vMAJOR.MINOR.PATCH)."
+
+          # SemVer 2.0.0 (with leading 'v'):
+          # vMAJOR.MINOR.PATCH
+          #   optional -PRERELEASE (dot-separated identifiers, alnum + hyphen, not empty)
+          #   optional +BUILD (dot-separated identifiers, alnum + hyphen, not empty)
+          #
+          # Examples accepted:
+          #   v0.1.0
+          #   v0.1.0-rc1
+          #   v1.2.3-alpha.1
+          #   v1.2.3-rc.1+build.7
+          #
+          if [[ ! "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$ ]]; then
+            echo "Tag '$TAG' is not valid semver (expected vMAJOR.MINOR.PATCH[-PRERELEASE][+BUILD])."
             exit 1
           fi
 
@@ -106,8 +118,7 @@ jobs:
                    "$name/build/*" \
                    "$name/*.egg-info/*")
 
-            # tar.gz
-            tar -C blueprint -czf "dist/${base}.tar.gz" "$name" \
+            tar -C blueprint \
               --exclude="$name/.venv" \
               --exclude="$name/.pytest_cache" \
               --exclude="$name/.ruff_cache" \
@@ -119,7 +130,9 @@ jobs:
               --exclude="$name/pytestdebug.log" \
               --exclude="$name/dist" \
               --exclude="$name/build" \
-              --exclude="$name"/*.egg-info
+              --exclude="$name"/*.egg-info \
+              -czf "dist/${base}.tar.gz" \
+              "$name"
           done
 
           # Full repo bundle (includes docs/adr, blueprints, etc.)
