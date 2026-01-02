@@ -1,5 +1,9 @@
 # polyglot-forge
 
+[![Python Blueprint CI](https://github.com/kpb/polyglot-forge/actions/workflows/python-blueprint.yml/badge.svg)](https://github.com/kpb/polyglot-forge/actions/workflows/python-blueprint.yml)
+[![Latest Release](https://img.shields.io/github/v/release/kpb/polyglot-forge?display_name=tag&sort=semver)](https://github.com/kpb/polyglot-forge/releases)
+[![License](https://img.shields.io/github/license/kpb/polyglot-forge)](https://github.com/kpb/polyglot-forge/blob/main/LICENSE)
+
 Opinionated scaffolding for polyglot projects.
 
 ## What is This?
