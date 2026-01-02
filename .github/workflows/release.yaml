@@ -1,0 +1,143 @@
+name: Release (blueprint bundles)
+
+on:
+  push:
+    tags:
+      - "v*.*.*" # repo-root tags like v0.10.0 (won't match python@v1.0.0)
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate tag is strict semver (vMAJOR.MINOR.PATCH)
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag '$TAG' is not strict semver (expected vMAJOR.MINOR.PATCH)."
+            exit 1
+          fi
+
+      # --- Run Python blueprint checks before releasing (since it's the only blueprint today) ---
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "blueprint/python/.python-version"
+
+      - name: Install uv (with caching)
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          working-directory: blueprint/python
+
+      - name: Sync deps (locked if uv.lock exists)
+        shell: bash
+        working-directory: blueprint/python
+        run: |
+          if [[ -f uv.lock ]]; then
+            uv sync --frozen
+          else
+            uv sync
+          fi
+
+      - name: Pre-commit (all files)
+        shell: bash
+        working-directory: blueprint/python
+        run: |
+          if [[ -f uv.lock ]]; then
+            uv run --frozen -- pre-commit run --all-files -c "$GITHUB_WORKSPACE/.pre-commit-config.yaml"
+          else
+            uv run -- pre-commit run --all-files -c "$GITHUB_WORKSPACE/.pre-commit-config.yaml"
+          fi
+
+      - name: Coverage (unit, >=80%)
+        shell: bash
+        working-directory: blueprint/python
+        run: |
+          if [[ -f uv.lock ]]; then
+            uv run --frozen -- pytest -m "not integration" \
+              --cov=example_pkg --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+          else
+            uv run -- pytest -m "not integration" \
+              --cov=example_pkg --cov-report=term-missing --cov-report=xml --cov-fail-under=80
+          fi
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-blueprint-coverage
+          path: blueprint/python/coverage.xml
+
+      # --- Bundle each blueprint as zip + tar.gz and attach to the GitHub Release ---
+      - name: Build release artifacts (zip + tar.gz per blueprint)
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          mkdir -p dist
+
+          # Bundle each immediate child directory under ./blueprint/
+          for d in blueprint/*/; do
+            name="$(basename "$d")"
+            base="blueprint-${name}-${TAG}"
+
+            echo "Bundling blueprint/$name -> dist/${base}.{zip,tar.gz}"
+
+            # zip
+            (cd blueprint && \
+              zip -r "../dist/${base}.zip" "$name" \
+                -x "$name/.venv/*" \
+                   "$name/.pytest_cache/*" \
+                   "$name/.ruff_cache/*" \
+                   "$name/**/__pycache__/*" \
+                   "$name/.mypy_cache/*" \
+                   "$name/htmlcov/*" \
+                   "$name/.coverage" \
+                   "$name/coverage.xml" \
+                   "$name/pytestdebug.log" \
+                   "$name/dist/*" \
+                   "$name/build/*" \
+                   "$name/*.egg-info/*")
+
+            # tar.gz
+            tar -C blueprint -czf "dist/${base}.tar.gz" "$name" \
+              --exclude="$name/.venv" \
+              --exclude="$name/.pytest_cache" \
+              --exclude="$name/.ruff_cache" \
+              --exclude="$name/__pycache__" \
+              --exclude="$name/.mypy_cache" \
+              --exclude="$name/htmlcov" \
+              --exclude="$name/.coverage" \
+              --exclude="$name/coverage.xml" \
+              --exclude="$name/pytestdebug.log" \
+              --exclude="$name/dist" \
+              --exclude="$name/build" \
+              --exclude="$name"/*.egg-info
+          done
+
+          # Full repo bundle (includes docs/adr, blueprints, etc.)
+          FULL="polyglot-forge-${TAG}"
+
+          git archive --format=zip    --prefix="${FULL}/" -o "dist/${FULL}.zip"    "${TAG}"
+          git archive --format=tar.gz --prefix="${FULL}/" -o "dist/${FULL}.tar.gz" "${TAG}"
+
+
+          # Checksums
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+
+      - name: Create GitHub Release + upload assets
+        uses: softprops/action-gh-release@v2
+        if: github.ref_type == 'tag'
+        with:
+          generate_release_notes: true
+          files: |
+            dist/*.zip
+            dist/*.tar.gz
+            dist/SHA256SUMS.txt
